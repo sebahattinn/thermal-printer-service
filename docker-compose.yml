@@ -1,0 +1,79 @@
+# Termal Yazici Servisi - Docker Compose tanimi
+#
+# Kullanim:
+#   1) cp .env.example .env  ve degerleri doldurun
+#   2) docker compose up -d --build
+#   3) curl http://localhost:8080/status
+#
+# Loglar named volume "printer-logs" altinda kalici tutulur.
+
+services:
+  thermal-printer-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        DOTNET_SDK_TAG: "8.0"
+        DOTNET_RUNTIME_TAG: "8.0"
+    image: thermal-printer-service:latest
+    container_name: thermal-printer-service
+    restart: unless-stopped
+
+    # Host:Container. Host portunu degistirmek isterseniz ilk sayiyi degistirin.
+    ports:
+      - "8080:8080"
+
+    # .env dosyasi varsa yuklenir, yoksa atlanir (Compose 2.24+).
+    # Boylelikle salt appsettings ile de container ayaga kalkar.
+    env_file:
+      - path: .env
+        required: false
+
+    # env_file uzerinde son soz bu blokta; runtime'a ozel sabit degerler.
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      Printer__Logs__FilePath: /var/log/printer/logs.json
+      Printer__Logs__FailedJobsDirectory: /app/failed-jobs
+
+    volumes:
+      - printer-logs:/var/log/printer
+      - failed-jobs:/app/failed-jobs
+
+    # --- USB yazici icin (Linux host) ---
+    # Yazicinin host uzerindeki cihaz dosyasini container'a baglayin.
+    # Asagidaki satirlari acin ve PortName degerinizle eslesen yolu yazin.
+    # devices:
+    #   - "/dev/ttyUSB0:/dev/ttyUSB0"
+    # group_add:
+    #   - "dialout"
+
+    # --- LAN yazici icin ---
+    # Yazici LAN'da erisilebilir bir IP'ye sahipse ek yapilandirma gerekmez.
+    # Container varsayilan bridge network'unden NAT ile yaziciya ulasabilir.
+
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "--show-error", "http://localhost:8080/status"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+    networks:
+      - printer-net
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  printer-logs:
+    driver: local
+  failed-jobs:
+    driver: local
+
+networks:
+  printer-net:
+    driver: bridge

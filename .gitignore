@@ -1,0 +1,48 @@
+# ===== .NET build artifacts =====
+**/bin/
+**/obj/
+**/out/
+**/publish/
+*.dll
+*.pdb
+*.exe
+
+# ===== IDE / editor =====
+**/.vs/
+**/.vscode/
+**/.idea/
+*.user
+*.suo
+*.sln.docstates
+
+# ===== Test / coverage =====
+**/TestResults/
+**/coverage/
+*.coverage
+*.trx
+
+# ===== Runtime artifacts =====
+logs.json
+logs/
+*.log
+**/failed-jobs/
+
+# ===== Secrets / local config =====
+.env
+.env.*
+!.env.example
+appsettings.Development.local.json
+secrets.json
+*.pfx
+
+# ===== OS =====
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# ===== NuGet / restore =====
+**/packages/
+*.nupkg
+**/project.lock.json
+**/project.fragment.lock.json
+**/.nuget/

@@ -1,0 +1,37 @@
+# Build cikti dizinleri
+**/bin/
+**/obj/
+**/out/
+**/publish/
+
+# IDE / editor
+**/.vs/
+**/.vscode/
+**/.idea/
+*.user
+*.suo
+*.sln.docstates
+
+# VCS
+.git/
+.gitignore
+.gitattributes
+
+# Calisma zamani urunleri
+logs.json
+logs/
+*.log
+
+# Gizli / makineye ozel
+.env
+.env.*
+!.env.example
+
+# Docker'in kendisi
+Dockerfile
+.dockerignore
+docker-compose*.yml
+
+# Dokumantasyon (build icin gereksiz)
+README.md
+*.md

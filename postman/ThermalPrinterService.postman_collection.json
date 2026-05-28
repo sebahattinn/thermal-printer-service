@@ -1,0 +1,212 @@
+{
+  "info": {
+    "name": "Termal Yazıcı Servisi",
+    "_postman_id": "aco-thermal-printer-service-2026",
+    "description": "Cashino KP-300/301H/302 uyumlu, .NET 8 / ASP.NET Core Web API. Tüm endpoint'ler için örnek istekler. Mock modu ile fiziksel cihaz olmadan tüm akış denenebilir.\n\nDeğişkenler:\n- `baseUrl` (varsayılan http://localhost:8080)\n- `apiKey` (auth açıksa X-Api-Key değeri; boşsa header gönderilmez)\n- `idempotencyKey` (örnek tekrar denemesi için)\n- `jobId` (reprint örneğinde kullanılır; ilk basımdan sonra response'tan alıp set edin)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "apiKey", "value": "" },
+    { "key": "idempotencyKey", "value": "aco-receipt-{{$timestamp}}" },
+    { "key": "jobId", "value": "" }
+  ],
+  "auth": {
+    "type": "apikey",
+    "apikey": [
+      { "key": "key", "value": "X-Api-Key" },
+      { "key": "value", "value": "{{apiKey}}" },
+      { "key": "in", "value": "header" }
+    ]
+  },
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "GET /health (liveness)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/health", "host": ["{{baseUrl}}"], "path": ["health"] }
+          }
+        },
+        {
+          "name": "GET /health/ready (readiness)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/health/ready", "host": ["{{baseUrl}}"], "path": ["health", "ready"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Connect & Status",
+      "item": [
+        {
+          "name": "POST /connect (Mock — fiziksel cihaz yok)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/connect", "host": ["{{baseUrl}}"], "path": ["connect"] },
+            "body": { "mode": "raw", "raw": "{\n  \"mode\": \"Mock\"\n}" }
+          }
+        },
+        {
+          "name": "POST /connect (USB)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/connect", "host": ["{{baseUrl}}"], "path": ["connect"] },
+            "body": { "mode": "raw", "raw": "{\n  \"mode\": \"Usb\"\n}" }
+          }
+        },
+        {
+          "name": "POST /connect (LAN)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/connect", "host": ["{{baseUrl}}"], "path": ["connect"] },
+            "body": { "mode": "raw", "raw": "{\n  \"mode\": \"Lan\"\n}" }
+          }
+        },
+        {
+          "name": "GET /status",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/status", "host": ["{{baseUrl}}"], "path": ["status"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Print",
+      "item": [
+        {
+          "name": "POST /print/text",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Idempotency-Key", "value": "{{idempotencyKey}}", "disabled": true }
+            ],
+            "url": { "raw": "{{baseUrl}}/print/text", "host": ["{{baseUrl}}"], "path": ["print", "text"] },
+            "body": { "mode": "raw", "raw": "{\n  \"text\": \"Merhaba ACO Recycling\\nTest fişi\"\n}" }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const j = pm.response.json();",
+                  "if (j.jobId) pm.collectionVariables.set('jobId', j.jobId);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /print/image (base64 PNG)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/print/image", "host": ["{{baseUrl}}"], "path": ["print", "image"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"imageBase64\": \"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=\"\n}"
+            }
+          }
+        },
+        {
+          "name": "POST /print/qr (standalone)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/print/qr", "host": ["{{baseUrl}}"], "path": ["print", "qr"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"data\": \"https://aco.test/r/ACO-TEST-0001-0001\",\n  \"moduleSize\": 6,\n  \"ecc\": \"M\",\n  \"alignment\": \"Center\"\n}"
+            }
+          }
+        },
+        {
+          "name": "POST /print/receipt (ACO fişi)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/print/receipt", "host": ["{{baseUrl}}"], "path": ["print", "receipt"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"elements\": [\n    { \"type\": \"text\", \"text\": \"ACO RECYCLING\", \"alignment\": \"Center\", \"bold\": true, \"width\": 2, \"height\": 2 },\n    { \"type\": \"text\", \"text\": \"MachineID: ACO-TEST-0001-0001\", \"alignment\": \"Center\" },\n    { \"type\": \"text\", \"text\": \"16 Eylül 2025 16:19:02 UTC\", \"alignment\": \"Center\" },\n    { \"type\": \"text\", \"text\": \"Reward: 3.00 ₺\", \"alignment\": \"Center\", \"bold\": true, \"width\": 2, \"height\": 2 },\n    { \"type\": \"separator\", \"character\": \"-\" },\n    {\n      \"type\": \"table\",\n      \"headers\": [\"Product\", \"Qty\", \"Reward\"],\n      \"rows\": [\n        [\"Glass\", \"0\", \"0\"],\n        [\"Plastic\", \"2\", \"2\"],\n        [\"Metal\", \"1\", \"1\"],\n        [\"Tetrapak\", \"0\", \"0\"]\n      ]\n    },\n    { \"type\": \"feed\", \"lines\": 2 },\n    { \"type\": \"qr\", \"qrData\": \"https://aco.test/r/ACO-TEST-0001-0001\", \"qrModuleSize\": 6, \"qrEcc\": \"M\" },\n    { \"type\": \"feed\", \"lines\": 3 },\n    { \"type\": \"cut\", \"feedDots\": 30 }\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "POST /reprint/{{jobId}}",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{baseUrl}}/reprint/{{jobId}}", "host": ["{{baseUrl}}"], "path": ["reprint", "{{jobId}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Logs",
+      "item": [
+        {
+          "name": "GET /logs",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/logs", "host": ["{{baseUrl}}"], "path": ["logs"] }
+          }
+        },
+        {
+          "name": "GET /logs/export.csv",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/logs/export.csv", "host": ["{{baseUrl}}"], "path": ["logs", "export.csv"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Paper roll",
+      "item": [
+        {
+          "name": "GET /paper",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/paper", "host": ["{{baseUrl}}"], "path": ["paper"] }
+          }
+        },
+        {
+          "name": "POST /paper/reset (yeni rulo)",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{baseUrl}}/paper/reset", "host": ["{{baseUrl}}"], "path": ["paper", "reset"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Idempotency örneği",
+      "item": [
+        {
+          "name": "POST /print/text (Idempotency-Key ile)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Idempotency-Key", "value": "{{idempotencyKey}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/print/text", "host": ["{{baseUrl}}"], "path": ["print", "text"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"Aynı key ile iki kez bas — tek jobId döner.\"\n}"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

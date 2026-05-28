@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Termal Yazıcı Servisi — Operatör Paneli</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen">
+
+  <header class="bg-slate-900 text-white shadow">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex items-center gap-4">
+      <h1 class="text-xl font-bold flex-1">Termal Yazıcı Servisi</h1>
+
+      <span id="badge-conn" class="px-3 py-1 rounded-full text-xs font-semibold bg-slate-700">
+        bağlı değil
+      </span>
+      <span id="badge-state" class="px-3 py-1 rounded-full text-xs font-semibold bg-slate-700">
+        Disconnected
+      </span>
+    </div>
+  </header>
+
+  <div id="banner" class="hidden max-w-7xl mx-auto mt-4 px-4">
+    <div id="banner-box" class="rounded border-l-4 p-4 shadow-sm">
+      <div class="flex items-start">
+        <div class="flex-1">
+          <strong id="banner-title"></strong>
+          <p id="banner-detail" class="text-sm mt-1"></p>
+        </div>
+        <button onclick="hideBanner()" class="text-slate-500 hover:text-slate-800 ml-4">×</button>
+      </div>
+    </div>
+  </div>
+
+  <main class="max-w-7xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <!-- Bağlantı -->
+    <section class="bg-white rounded-lg shadow p-5">
+      <h2 class="font-semibold text-lg mb-3">1. Bağlantı</h2>
+      <div class="flex flex-wrap gap-3 mb-3">
+        <label class="flex items-center gap-2"><input type="radio" name="mode" value="Mock" checked /> Mock <span class="text-xs text-slate-500">(simülasyon)</span></label>
+        <label class="flex items-center gap-2"><input type="radio" name="mode" value="Usb" /> USB</label>
+        <label class="flex items-center gap-2"><input type="radio" name="mode" value="Lan" /> LAN</label>
+      </div>
+      <button onclick="connect()"
+        class="w-full bg-slate-900 text-white py-2 rounded hover:bg-slate-700">Bağlan</button>
+      <p id="connect-result" class="text-sm mt-3 text-slate-600"></p>
+      <p class="text-xs text-slate-400 mt-2">
+        <strong>Mock</strong>: gerçek cihaz olmadan tüm akışı dener (her zaman bağlı, Ready).<br />
+        <strong>USB</strong>: <code>Printer__Usb__PortName</code> env değişkeni gerekli.<br />
+        <strong>LAN</strong>: <code>Printer__Lan__Host</code> env değişkeni gerekli.
+      </p>
+    </section>
+
+    <!-- Durum -->
+    <section class="bg-white rounded-lg shadow p-5">
+      <h2 class="font-semibold text-lg mb-3">2. Durum</h2>
+      <div class="grid grid-cols-2 gap-2 text-center text-sm mb-3">
+        <div class="bg-amber-50 rounded p-2">
+          <div class="text-xs text-amber-600">Bekliyor</div>
+          <div id="q-pending" class="text-2xl font-bold">0</div>
+        </div>
+        <div class="bg-blue-50 rounded p-2">
+          <div class="text-xs text-blue-600">Basılıyor</div>
+          <div id="q-inflight" class="text-2xl font-bold">0</div>
+        </div>
+        <div class="bg-emerald-50 rounded p-2">
+          <div class="text-xs text-emerald-700">Başarılı</div>
+          <div id="q-succeeded" class="text-2xl font-bold">0</div>
+        </div>
+        <div class="bg-rose-50 rounded p-2">
+          <div class="text-xs text-rose-600">Hata</div>
+          <div id="q-failed" class="text-2xl font-bold">0</div>
+        </div>
+      </div>
+      <div class="text-sm text-slate-600">
+        <div>ETA: <span id="eta" class="font-mono">—</span></div>
+        <div class="mt-1">Son iş: <span id="last-job" class="font-mono text-xs">yok</span></div>
+        <div class="mt-1 text-xs text-slate-400">Otomatik yenileme: 2 sn</div>
+      </div>
+    </section>
+
+    <!-- Hızlı işlem -->
+    <section class="bg-white rounded-lg shadow p-5">
+      <h2 class="font-semibold text-lg mb-3">3. Hızlı işlem</h2>
+      <div class="flex flex-col gap-2">
+        <button onclick="quickPrintText()" class="bg-emerald-600 text-white py-2 rounded hover:bg-emerald-700">
+          Test fişi bas (metin)
+        </button>
+        <button onclick="quickPrintReceipt()" class="bg-emerald-700 text-white py-2 rounded hover:bg-emerald-800">
+          ACO örnek fişi bas
+        </button>
+        <button onclick="refreshAll()" class="bg-slate-200 text-slate-800 py-2 rounded hover:bg-slate-300">
+          Yenile
+        </button>
+      </div>
+    </section>
+
+    <!-- Print sekmesi -->
+    <section class="bg-white rounded-lg shadow p-5 lg:col-span-2">
+      <h2 class="font-semibold text-lg mb-3">4. Basım</h2>
+      <div class="flex border-b mb-3 overflow-x-auto">
+        <button onclick="showTab('text')" class="tab-btn px-4 py-2 border-b-2 border-slate-900 whitespace-nowrap" data-tab="text">Metin</button>
+        <button onclick="showTab('image')" class="tab-btn px-4 py-2 text-slate-500 whitespace-nowrap" data-tab="image">Görsel</button>
+        <button onclick="showTab('qr')" class="tab-btn px-4 py-2 text-slate-500 whitespace-nowrap" data-tab="qr">QR</button>
+        <button onclick="showTab('receipt')" class="tab-btn px-4 py-2 text-slate-500 whitespace-nowrap" data-tab="receipt">Fiş (JSON)</button>
+      </div>
+
+      <div id="tab-text" class="tab-panel">
+        <textarea id="text-input" rows="3" class="w-full border rounded p-2 font-mono text-sm" placeholder="Bas&#x131;lacak metin... &#xC7;oklu sat&#x131;r i&#xE7;in Enter kullan.&#10;T&#xFC;rk&#xE7;e/Frans&#x131;zca/Almanca karakterler desteklenir."></textarea>
+        <div class="flex gap-2 mt-2">
+          <button onclick="printText()" class="bg-slate-900 text-white px-4 py-2 rounded hover:bg-slate-700">Bas</button>
+          <button onclick="document.getElementById('text-input').value='Merhaba ACO Recycling\nReward: 3.00 ₺\nTeşekkür ederiz.'" class="text-xs text-blue-600 hover:underline">Örnek doldur</button>
+        </div>
+      </div>
+
+      <div id="tab-image" class="tab-panel hidden">
+        <p class="text-xs text-slate-500 mb-2">
+          PNG / JPEG / BMP yükleyin. Görsel grayscale + threshold ile 1bpp'ye düşürülür ve yazıcının max
+          genişliğine (<span id="image-max-width">384</span> dot) oran koruyarak ölçeklenir.
+          Çoğu logo için 200-400 dot genişlik idealdir.
+        </p>
+        <input id="image-input" type="file" accept="image/png,image/jpeg,image/bmp" class="block mb-2 text-sm" />
+        <div id="image-preview-wrap" class="hidden mb-2 p-2 border rounded bg-slate-50">
+          <div class="text-xs text-slate-500 mb-1">Önizleme (orijinal):</div>
+          <img id="image-preview" class="max-h-40 mx-auto bg-white p-1 border" />
+        </div>
+        <button onclick="printImage()" class="bg-slate-900 text-white px-4 py-2 rounded hover:bg-slate-700">Bas</button>
+      </div>
+
+      <div id="tab-qr" class="tab-panel hidden">
+        <p class="text-xs text-slate-500 mb-2">
+          QR koda gömülecek metin (URL, JSON, vCard, plain text). ACO için tipik kullanım: fiş URL'si.
+        </p>
+        <input id="qr-data" type="text" class="w-full border rounded p-2 font-mono text-sm" placeholder="https://aco.test/r/ACO-TEST-0001-0001 (veya herhangi bir metin)" />
+        <div class="flex flex-wrap items-center gap-2 mt-2">
+          <label class="text-sm">Modül boyutu:</label>
+          <input id="qr-size" type="number" min="1" max="16" value="6" class="border rounded p-1 w-16 text-sm" />
+          <label class="text-sm">ECC:</label>
+          <select id="qr-ecc" class="border rounded p-1 text-sm">
+            <option value="L">L (~7%)</option>
+            <option value="M" selected>M (~15%)</option>
+            <option value="Q">Q (~25%)</option>
+            <option value="H">H (~30%)</option>
+          </select>
+          <button onclick="fillSampleQr()" class="text-xs text-blue-600 hover:underline">Örnek doldur</button>
+        </div>
+        <button onclick="printQr()" class="mt-3 bg-slate-900 text-white px-4 py-2 rounded hover:bg-slate-700">Bas</button>
+      </div>
+
+      <div id="tab-receipt" class="tab-panel hidden">
+        <p class="text-xs text-slate-500 mb-2">
+          ACO fişi gibi kompozit (logo + metin + tablo + QR + kesim). Aşağıdaki JSON yapısını doldurun
+          veya "ACO örnek" butonuyla başlayın; "Önizle" canlı renderı sağ tarafta gösterir.
+        </p>
+        <textarea id="receipt-input" rows="10" class="w-full border rounded p-2 font-mono text-xs" oninput="renderPreview()"></textarea>
+        <div class="flex flex-wrap gap-2 mt-2">
+          <button onclick="printReceipt()" class="bg-slate-900 text-white px-4 py-2 rounded hover:bg-slate-700">Bas</button>
+          <button onclick="renderPreview(true)" class="bg-slate-200 text-slate-800 px-4 py-2 rounded hover:bg-slate-300">Önizle</button>
+          <button onclick="fillSampleReceipt()" class="text-xs text-blue-600 hover:underline">ACO örneği doldur</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Fis Onizleme -->
+    <section class="bg-white rounded-lg shadow p-5">
+      <h2 class="font-semibold text-lg mb-3">Fiş Önizleme</h2>
+      <p class="text-xs text-slate-500 mb-2">
+        "Fiş (JSON)" sekmesindeki içerik canlı olarak burada termal kağıt görünümünde
+        render edilir — basmadan önce nasıl çıkacağını görürsün.
+      </p>
+      <div id="preview-paper" class="receipt-preview mx-auto">
+        <div class="text-center text-slate-400 text-xs py-10">
+          Önizleme için "Fiş (JSON)" sekmesini doldur.
+        </div>
+      </div>
+    </section>
+
+    <!-- Failed jobs -->
+    <section class="bg-white rounded-lg shadow p-5">
+      <h2 class="font-semibold text-lg mb-3">5. Başarısız işler</h2>
+      <div id="failed-list" class="text-sm text-slate-600">yok</div>
+    </section>
+
+    <!-- Rulo omru -->
+    <section class="bg-white rounded-lg shadow p-5 lg:col-span-2">
+      <div class="flex items-center mb-3">
+        <h2 class="font-semibold text-lg flex-1">Rulo ömrü</h2>
+        <button onclick="resetPaper()" class="text-xs bg-slate-200 text-slate-800 px-3 py-1 rounded hover:bg-slate-300">
+          Yeni rulo (sıfırla)
+        </button>
+      </div>
+      <div class="w-full bg-slate-200 rounded-full h-3 mb-2 overflow-hidden">
+        <div id="paper-bar" class="bg-emerald-500 h-3 transition-all" style="width: 100%"></div>
+      </div>
+      <div class="text-sm text-slate-700 grid grid-cols-2 gap-2">
+        <div>Kalan: <span id="paper-remaining" class="font-mono">—</span> mm</div>
+        <div>Kalan %: <span id="paper-percent" class="font-mono">—</span></div>
+        <div>Kullanılan: <span id="paper-used" class="font-mono">—</span> mm</div>
+        <div>Tahmini fiş: <span id="paper-jobs" class="font-mono">—</span></div>
+      </div>
+      <p class="text-xs text-slate-400 mt-2">
+        Job başına ortalama: <span id="paper-avg" class="font-mono">—</span> mm •
+        Bu rulodan basılan: <span id="paper-printed-count" class="font-mono">0</span>
+      </p>
+      <p class="text-xs text-amber-700 mt-1">
+        Yalnız <strong>başarılı</strong> basımlar sayaca eklenir. Bağlanmadan basarsan kağıt harcanmaz.
+      </p>
+    </section>
+
+    <!-- Logs -->
+    <section class="bg-white rounded-lg shadow p-5 lg:col-span-3">
+      <div class="flex items-center mb-3">
+        <h2 class="font-semibold text-lg flex-1">6. Loglar</h2>
+        <a href="/logs/export.csv" class="text-sm text-blue-600 hover:underline" download>CSV indir</a>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-xs">
+          <thead class="bg-slate-50">
+            <tr>
+              <th class="text-left p-2">Zaman</th>
+              <th class="text-left p-2">Op</th>
+              <th class="text-left p-2">Conn</th>
+              <th class="text-left p-2">JobId</th>
+              <th class="text-left p-2">Durum</th>
+              <th class="text-left p-2">Hata</th>
+            </tr>
+          </thead>
+          <tbody id="logs-body" class="font-mono"></tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="text-center text-xs text-slate-500 py-6">
+    Termal Yazıcı Servisi • Cashino KP-300/301H/302 uyumlu • API-first + Operator UI
+  </footer>
+
+  <script src="/app.js?v=3"></script>
+</body>
+</html>
